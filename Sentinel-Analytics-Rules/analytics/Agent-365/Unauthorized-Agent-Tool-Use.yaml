@@ -1,0 +1,28 @@
+id: 44444444-4444-4444-4444-444444444444
+name: Unauthorized Agent Tool Use
+description: |
+  Detects Microsoft Agent 365 or agentic workload tool calls outside approved policy. Tune table names to match your telemetry pipeline.
+severity: High
+status: Available
+requiredDataConnectors: []
+queryFrequency: 1h
+queryPeriod: 24h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Execution
+relevantTechniques:
+  - T1059
+query: |
+  AIToolExecution_CL
+  | where TimeGenerated > ago(24h)
+  | where ApprovedTool_b == false or ToolRisk_s in~ ("High", "Critical")
+  | extend DetectionName = "Unauthorized Agent Tool Use"
+  | extend Severity = "High"
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: UserPrincipalName_s
+version: 1.0.0
+kind: Scheduled

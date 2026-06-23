@@ -1,0 +1,38 @@
+id: 22222222-2222-2222-2222-222222222222
+name: AI Assisted Data Exfiltration Correlation
+description: |
+  Correlates AI activity with mass file access or external sharing activity. Tune table names to match your AI telemetry schema.
+severity: Critical
+status: Available
+requiredDataConnectors:
+  - connectorId: Office365
+    dataTypes:
+      - OfficeActivity
+queryFrequency: 1h
+queryPeriod: 24h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Exfiltration
+relevantTechniques:
+  - T1041
+query: |
+  let AIUsers =
+      AIApp_CL
+      | where TimeGenerated > ago(24h)
+      | summarize AIPromptCount=count(), AISessions=make_set(SessionId_s, 50) by UserPrincipalName_s;
+  OfficeActivity
+  | where TimeGenerated > ago(24h)
+  | where Operation in ("FileAccessed", "FileDownloaded", "FileSyncDownloadedFull", "AnonymousLinkCreated", "SharingSet")
+  | summarize FileEvents=count(), Operations=make_set(Operation, 50), Sites=make_set(Site_Url, 25)
+      by UserPrincipalName_s = UserId, bin(TimeGenerated, 15m)
+  | join kind=inner AIUsers on UserPrincipalName_s
+  | where FileEvents > 100
+  | extend DetectionName = "AI Assisted Data Exfiltration Correlation"
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: UserPrincipalName_s
+version: 1.0.0
+kind: Scheduled
