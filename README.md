@@ -64,5 +64,11 @@ threat-hunting
 logic-apps
 snort
 sigma
+
+## Repository Notice
+
+This repository is maintained as a professional cybersecurity portfolio and research project focused on detection engineering, incident response, threat hunting, security automation, and AI security.
+Content is published for educational, technical, and professional reference purposes. This repository is not currently accepting community contributions, pull requests, issue submissions, or feature requests.
+All content is provided as-is and should be reviewed, tested, and validated before use in production environments.
 blue-team
 ```
