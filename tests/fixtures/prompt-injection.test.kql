@@ -1,0 +1,12 @@
+// Self-contained threshold fixture. Expected output: TestPassed=true.
+let Threshold = 3;
+let Terms = dynamic(["ignore previous instructions", "jailbreak"]);
+let Input = datatable(TimeGenerated:datetime, User:string, Prompt:string)
+[
+  datetime(2026-09-28T12:00:00Z), "attacker@example.com", "ignore previous instructions",
+  datetime(2026-09-28T12:01:00Z), "attacker@example.com", "jailbreak",
+  datetime(2026-09-28T12:02:00Z), "attacker@example.com", "ignore previous instructions",
+  datetime(2026-09-28T12:03:00Z), "user@example.com", "summarize this report"
+];
+let Detection = Input | where Prompt has_any (Terms) | summarize Attempts=count() by User | where Attempts >= Threshold;
+print TestPassed=toscalar(Detection | count) == 1

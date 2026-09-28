@@ -1,0 +1,58 @@
+id: 8b059d67-d308-4569-920b-e516b0a5e6e0
+name: AI activity correlated with mass file operations
+description: Correlates custom AI activity with high-volume SharePoint or OneDrive access. Correlation establishes proximity, not causation; validate schema and business context.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: Office365
+    dataTypes: [OfficeActivity]
+  - connectorId: CustomLogsAma
+    dataTypes: [AIApp_CL]
+queryFrequency: 1h
+queryPeriod: 2h
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [Collection, Exfiltration]
+relevantTechniques: [T1530]
+query: |
+  let FileEventThreshold = 100;
+  let AIUsers = AIApp_CL
+      | where TimeGenerated > ago(2h)
+      | summarize AIPromptCount=count(), AISessions=make_set(SessionId_s, 50),
+          AIStart=min(TimeGenerated), AIEnd=max(TimeGenerated) by UserPrincipalName=tostring(UserPrincipalName_s);
+  OfficeActivity
+  | where TimeGenerated > ago(2h)
+  | where Workload in ("SharePoint", "OneDrive")
+  | where Operation in ("FileAccessed", "FileDownloaded", "FileSyncDownloadedFull", "AnonymousLinkCreated", "SharingSet")
+  | summarize FileEvents=count(), Operations=make_set(Operation, 50), Sites=make_set(Site_Url, 25),
+      SourceIPs=make_set(ClientIP, 20), StartTime=min(TimeGenerated), EndTime=max(TimeGenerated)
+      by UserPrincipalName=tostring(UserId), bin(TimeGenerated, 30m)
+  | where FileEvents >= FileEventThreshold
+  | join kind=inner AIUsers on UserPrincipalName
+  | extend PrimarySourceIP=tostring(SourceIPs[0])
+  | project TimeGenerated, UserPrincipalName, PrimarySourceIP, FileEvents, Operations,
+      Sites, AIPromptCount, AISessions, AIStart, AIEnd, StartTime, EndTime
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: PrimarySourceIP}]
+customDetails: {FileEvents: FileEvents, AIPromptCount: AIPromptCount, Sites: Sites}
+alertDetailsOverride:
+  alertDisplayNameFormat: "AI and mass file activity by {{UserPrincipalName}}"
+  alertDescriptionFormat: "{{FileEvents}} file events were correlated with {{AIPromptCount}} AI prompts."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 2.0.0
+kind: Scheduled

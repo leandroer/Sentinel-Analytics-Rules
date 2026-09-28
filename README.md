@@ -1,74 +1,64 @@
-# GitHub Portfolio Security Engineering Bundle
+# Microsoft Sentinel Analytics Rules
 
-This bundle contains artifacts to improve and professionalize a cybersecurity GitHub portfolio focused on:
+A focused detection-as-code library for Microsoft Sentinel covering identity, endpoint, cloud, Microsoft Purview, AI security, Microsoft Agent 365, and UEBA.
 
-- Detection Engineering
-- Incident Response
-- Microsoft Sentinel
-- Microsoft Defender XDR
-- Microsoft Purview
-- Microsoft Agent 365
-- AI Security
-- SOAR / Logic Apps
-- KQL
-- Snort
-- Sigma
+Every rule is an adaptable example. Validate connector identifiers, table schemas, thresholds, entity mappings, grouping, and expected alert volume in a non-production workspace before enablement.
 
-## Included Artifacts
+## Architecture
 
-```text
-.
-├── profile-readme/
-│   └── leandroer/
-│       └── README.md
-├── repo-templates/
-│   ├── STANDARD-REPO-README.md
-│   ├── DETECTION-DOCUMENTATION-TEMPLATE.md
-│   └── PROJECT-ROADMAP.md
-├── diagrams/
-│   ├── ai-security-operations-architecture.md
-│   ├── sentinel-soar-architecture.md
-│   └── snort-detection-architecture.md
-├── Sentinel-Analytics-Rules/
-├── Sentinel-Workbooks/
-└── deployment/
-    └── DEPLOYMENT-COMMANDS.md
+```mermaid
+flowchart LR
+    T["Security telemetry"] --> K["KQL detection"]
+    K --> E["Entity and context enrichment"]
+    E --> A["Sentinel alert"]
+    A --> I["Incident grouping"]
+    I --> R["Investigation and response"]
+    R --> M["Precision and coverage measurement"]
+    M --> K
 ```
 
-## Recommended GitHub Profile Pins
+## Rule domains
 
-Pin these repositories in this order:
+| Domain | Example coverage |
+|---|---|
+| AI security | Repeated prompt-injection indicators |
+| Agent 365 | Risky or unauthorized agent tool use |
+| Identity | Password spraying |
+| Purview | AI activity correlated with mass file operations |
+| Cloud | Azure resource deletion |
+| Endpoint | Suspicious PowerShell execution |
+| UEBA | Privileged-identity anomaly |
 
-1. `IncidentResponse`
-2. `AI-Security-Incident-Response-Lab`
-3. `KQL-Templates`
-4. `Snort-Detection-Engineering-Lab`
-5. `Sentinel-Analytics-Rules`
-6. `Sigma-Templates`
+Browse the generated [rule catalog](docs/rule-catalog.md) for tables, severity, ATT&CK mappings, entities, and versions.
 
-## Recommended GitHub Topics
-
-Use lowercase topics only:
+## Repository structure
 
 ```text
-cybersecurity
-incident-response
-detection-engineering
-microsoft-sentinel
-defender-xdr
-microsoft-purview
-ai-security
-kql
-soc
-threat-hunting
-logic-apps
-snort
-sigma
-
-## Repository Notice
-
-This repository is maintained as a professional cybersecurity portfolio and research project focused on detection engineering, incident response, threat hunting, security automation, and AI security.
-Content is published for educational, technical, and professional reference purposes. This repository is not currently accepting community contributions, pull requests, issue submissions, or feature requests.
-All content is provided as-is and should be reviewed, tested, and validated before use in production environments.
-blue-team
+analytics-rules/        Scheduled rule YAML organized by domain
+docs/                   Authoring, architecture, schema, and validation guidance
+scripts/                Static validation and catalog generation
+tests/fixtures/          Self-contained KQL logic fixtures
+.github/workflows/      Pull-request validation
 ```
+
+## Validate
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 scripts/validate_rules.py
+python3 scripts/generate_catalog.py --check
+```
+
+Static validation does not prove that a rule compiles against tenant data. See [validation strategy](docs/validation-strategy.md) for workspace-backed testing requirements.
+
+See the [coverage matrix](docs/coverage-matrix.md) for current behavioral and telemetry coverage, and [deployment guidance](deployment/README.md) before attempting tenant deployment.
+
+## Validation labels
+
+- **Example** — structurally reviewed, but not executed against representative telemetry.
+- **Lab Tested** — executed with controlled positive and negative scenarios.
+- **Production Validated** — operated against representative production telemetry with documented results.
+
+## Notice
+
+This repository is a professional cybersecurity portfolio and defensive research project. Unsolicited community contributions, issue submissions, and feature requests are not currently accepted. Content is provided as-is and must be reviewed, tested, authorized, and tuned before production deployment.
