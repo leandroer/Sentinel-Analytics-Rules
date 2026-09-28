@@ -15,4 +15,12 @@ Required fields:
 | `RiskLevel_s` | `string` | Environment-defined risk |
 | `ApprovalStatus_s` | `string` | Approval state |
 
+Optional fields used by specific rules:
+
+| Column | Type | Purpose |
+|---|---|---|
+| `RequestedPrivilege_s` | `string` | Requested or granted privilege level |
+| `OutputBytes_d` | `real` | Size of tool output or transfer |
+| `Destination_s` | `string` | Destination service, host, or connector |
+
 Do not ingest secrets, full tokens, authorization headers, or unredacted sensitive parameters. Preserve correlation from session through approval, execution, and result.

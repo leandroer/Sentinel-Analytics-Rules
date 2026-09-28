@@ -1,0 +1,61 @@
+id: 779b8419-dc00-5ef3-8e0a-3e3617d2cb7a
+name: New high-risk connector used by AI agent
+description: Detects first-seen use of a high-risk connector by an agent compared with a 30-day baseline.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: CustomLogsAma
+  dataTypes:
+  - AIToolExecution_CL
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Execution
+- Collection
+relevantTechniques:
+- T1059
+query: |
+  let Recent=1h; let Baseline=30d;
+  let Known=AIToolExecution_CL | where TimeGenerated between (ago(Baseline)..ago(Recent)) | summarize by AgentId=tostring(AgentId_s), ToolName=tostring(ToolName_s);
+  AIToolExecution_CL
+  | where TimeGenerated > ago(Recent)
+  | extend AgentId=tostring(AgentId_s), ToolName=tostring(ToolName_s), UserPrincipalName=tostring(UserPrincipalName_s), RiskLevel=tostring(RiskLevel_s), SourceIP=tostring(SourceIP_s)
+  | where RiskLevel in~ ("High","Critical")
+  | join kind=leftanti Known on AgentId, ToolName
+  | project TimeGenerated, UserPrincipalName, SourceIP, AgentId, ToolName, RiskLevel
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+customDetails:
+  AgentId: AgentId
+  ToolName: ToolName
+  RiskLevel: RiskLevel
+alertDetailsOverride:
+  alertDisplayNameFormat: New risky connector {{ToolName}} used by {{AgentId}}
+  alertDescriptionFormat: A first-seen high-risk connector was used by {{UserPrincipalName}}.
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

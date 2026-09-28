@@ -1,0 +1,57 @@
+id: aa4435a0-1274-5679-8a8b-920f96a88b49
+name: Emergency access account sign-in
+description: Detects successful authentication by configured break-glass or emergency access accounts.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- InitialAccess
+relevantTechniques:
+- T1078.004
+query: |
+  let EmergencyAccounts=dynamic(["breakglass@example.com","emergency-access@example.com"]);
+  SigninLogs
+  | where TimeGenerated>ago(1h) and tostring(ResultType)=="0"
+  | where UserPrincipalName in~ (EmergencyAccounts)
+  | project TimeGenerated, UserPrincipalName, IPAddress, AppDisplayName, Location, ConditionalAccessStatus, CorrelationId
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: IPAddress
+customDetails:
+  Application: AppDisplayName
+  Location: Location
+  CorrelationId: CorrelationId
+alertDetailsOverride:
+  alertDisplayNameFormat: 'Emergency account sign-in: {{UserPrincipalName}}'
+  alertDescriptionFormat: The emergency account authenticated from {{IPAddress}}.
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

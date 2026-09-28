@@ -1,0 +1,59 @@
+id: ec2390ac-f375-5ba6-ab97-e1ea69275c5d
+name: Suspicious OAuth application consent
+description: Detects successful consent or permission grants containing high-impact Microsoft Graph permissions.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - AuditLogs
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Persistence
+- PrivilegeEscalation
+relevantTechniques:
+- T1098.002
+query: |
+  AuditLogs
+  | where TimeGenerated>ago(1h) and Result =~ "success"
+  | where OperationName has_any ("Consent to application","Add delegated permission grant","Add app role assignment")
+  | extend InitiatorUPN=tostring(InitiatedBy.user.userPrincipalName), InitiatorIP=tostring(InitiatedBy.user.ipAddress), TargetApp=tostring(TargetResources[0].displayName), Details=tostring(TargetResources)
+  | where Details has_any ("Mail.ReadWrite","Files.ReadWrite.All","Directory.ReadWrite.All","offline_access")
+  | project TimeGenerated, InitiatorUPN, InitiatorIP, TargetApp, OperationName, Details, CorrelationId
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: InitiatorUPN
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: InitiatorIP
+customDetails:
+  TargetApp: TargetApp
+  Operation: OperationName
+  CorrelationId: CorrelationId
+alertDetailsOverride:
+  alertDisplayNameFormat: High-impact OAuth consent by {{InitiatorUPN}}
+  alertDescriptionFormat: Consent was granted to {{TargetApp}} through {{OperationName}}.
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

@@ -13,4 +13,13 @@ Required fields:
 | `Application_s` | `string` | AI application |
 | `Prompt_s` | `string` | Submitted prompt |
 
+Optional fields used by specific rules:
+
+| Column | Type | Purpose |
+|---|---|---|
+| `Response_s` | `string` | Model response after approved privacy controls |
+| `SensitivityClassification_s` | `string` | Output data classification |
+| `TokenCount_d` | `real` | Token consumption |
+| `ContentSafetyResult_s` | `string` | Content-safety or prompt-shield decision |
+
 Prompts can contain credentials, personal information, or proprietary data. Minimize collection, redact secrets, restrict access, and document retention before ingestion. Normalize DCR-created columns without legacy suffixes at ingestion or with a parser.

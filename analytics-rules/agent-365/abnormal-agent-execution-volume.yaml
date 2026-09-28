@@ -1,0 +1,53 @@
+id: 88428f48-7ed3-5071-8a36-264814e06a76
+name: Abnormal AI agent execution volume
+description: Detects an agent executing tools at a high volume during a short window.
+severity: Medium
+status: Available
+requiredDataConnectors:
+- connectorId: CustomLogsAma
+  dataTypes:
+  - AIToolExecution_CL
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Execution
+relevantTechniques:
+- T1059
+query: |
+  let ExecutionThreshold=100;
+  AIToolExecution_CL
+  | where TimeGenerated > ago(1h)
+  | extend UserPrincipalName=tostring(UserPrincipalName_s), AgentId=tostring(AgentId_s), ToolName=tostring(ToolName_s)
+  | summarize ExecutionCount=count(), Tools=make_set(ToolName,30) by UserPrincipalName, AgentId, bin(TimeGenerated,15m)
+  | where ExecutionCount >= ExecutionThreshold
+  | project TimeGenerated, UserPrincipalName, AgentId, ExecutionCount, Tools
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+customDetails:
+  AgentId: AgentId
+  ExecutionCount: ExecutionCount
+alertDetailsOverride:
+  alertDisplayNameFormat: Abnormal execution volume for agent {{AgentId}}
+  alertDescriptionFormat: '{{ExecutionCount}} executions were observed for {{UserPrincipalName}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

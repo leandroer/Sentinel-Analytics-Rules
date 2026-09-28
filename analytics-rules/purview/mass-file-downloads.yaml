@@ -1,0 +1,57 @@
+id: 31173cbe-f6c6-51b1-aa5a-5a4082f244a6
+name: Mass SharePoint or OneDrive downloads
+description: Detects a user downloading a high number of files during a one-hour window.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: Office365
+  dataTypes:
+  - OfficeActivity
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Collection
+relevantTechniques:
+- T1530
+query: |
+  let Threshold=200;
+  OfficeActivity | where TimeGenerated>ago(2h) and Workload in ("SharePoint","OneDrive") and Operation in ("FileDownloaded","FileSyncDownloadedFull")
+  | summarize Start=min(TimeGenerated), End=max(TimeGenerated), DownloadCount=count(), Files=make_set(SourceFileName,100), SourceIPs=make_set(ClientIP,20) by UserPrincipalName=tostring(UserId), bin(TimeGenerated,1h)
+  | where DownloadCount>=Threshold | extend PrimaryIP=tostring(SourceIPs[0])
+  | project TimeGenerated, UserPrincipalName, PrimaryIP, DownloadCount, Files, SourceIPs, Start, End
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: PrimaryIP
+customDetails:
+  DownloadCount: DownloadCount
+  Start: Start
+  End: End
+alertDetailsOverride:
+  alertDisplayNameFormat: Mass downloads by {{UserPrincipalName}}
+  alertDescriptionFormat: '{{DownloadCount}} files were downloaded.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

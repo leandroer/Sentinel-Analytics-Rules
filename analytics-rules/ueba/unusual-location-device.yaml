@@ -1,0 +1,60 @@
+id: 4d3bb7ee-da98-5e0c-9978-7cf24dce114f
+name: Unusual user location or device behavior
+description: Detects medium-to-high UEBA activity whose insight context indicates a new location or device.
+severity: Medium
+status: Available
+requiredDataConnectors:
+- connectorId: BehaviorAnalytics
+  dataTypes:
+  - BehaviorAnalytics
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- InitialAccess
+relevantTechniques:
+- T1078
+query: |
+  BehaviorAnalytics | where TimeGenerated>ago(1h) and InvestigationPriority>=5
+  | extend InsightText=strcat(tostring(ActivityInsights)," ",tostring(DevicesInsights)," ",tostring(UsersInsights)), SourceIP=SourceIPAddress
+  | where InsightText has_any ("unusual","uncommon","first time","new device","new location")
+  | project TimeGenerated, UserPrincipalName, SourceIP, SourceIPLocation, SourceDevice, InvestigationPriority, ActivityType, InsightText
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+- entityType: Host
+  fieldMappings:
+  - identifier: HostName
+    columnName: SourceDevice
+customDetails:
+  Priority: InvestigationPriority
+  ActivityType: ActivityType
+  Insight: InsightText
+alertDetailsOverride:
+  alertDisplayNameFormat: Unusual context for {{UserPrincipalName}}
+  alertDescriptionFormat: '{{ActivityType}} occurred with priority {{InvestigationPriority}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

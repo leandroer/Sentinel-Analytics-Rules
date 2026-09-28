@@ -19,15 +19,17 @@ flowchart LR
 
 ## Rule domains
 
-| Domain | Example coverage |
+| Domain | Five example behaviors |
 |---|---|
-| AI security | Repeated prompt-injection indicators |
-| Agent 365 | Risky or unauthorized agent tool use |
-| Identity | Password spraying |
-| Purview | AI activity correlated with mass file operations |
-| Cloud | Azure resource deletion |
-| Endpoint | Suspicious PowerShell execution |
-| UEBA | Privileged-identity anomaly |
+| AI security | Prompt injection, sensitive output, excessive tokens, system-prompt extraction, content-safety bypass |
+| Agent 365 | Unauthorized tools, privilege escalation, data transfer, abnormal volume, new risky connector |
+| Identity | Password spray, MFA fatigue, privileged role assignment, OAuth consent, emergency account use |
+| Purview | AI/file correlation, mass downloads, sensitive sharing, label downgrade, sharing spike |
+| Cloud | Resource deletion, Key Vault access, diagnostics deletion, public storage, NSG changes |
+| Endpoint | PowerShell, Office child shell, LOLBin retrieval, credential dumping, scheduled-task persistence |
+| UEBA | Privileged identity, newly observed identity, service account, unusual context, anomaly before role assignment |
+
+The catalog contains **35 analytics-rule examples: five per domain**.
 
 Browse the generated [rule catalog](docs/rule-catalog.md) for tables, severity, ATT&CK mappings, entities, and versions.
 

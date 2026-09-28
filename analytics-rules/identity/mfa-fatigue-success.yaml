@@ -1,0 +1,58 @@
+id: 5e59d7f9-bf9a-5d32-a0bb-f50417a12a9e
+name: Repeated MFA denials followed by success
+description: Detects multiple MFA denials followed by a successful sign-in for the same account.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- CredentialAccess
+- InitialAccess
+relevantTechniques:
+- T1621
+- T1078
+query: |
+  let Denials=SigninLogs | where TimeGenerated>ago(1h) and ResultDescription has_any ("MFA denied","user declined","fraud") | summarize First=min(TimeGenerated), Last=max(TimeGenerated), DenialCount=count() by UserPrincipalName;
+  let Success=SigninLogs | where TimeGenerated>ago(1h) and tostring(ResultType)=="0" | project SuccessTime=TimeGenerated, UserPrincipalName, SuccessIP=IPAddress, AppDisplayName;
+  Denials | where DenialCount>=3 | join kind=inner Success on UserPrincipalName | where SuccessTime between (First..Last+30m) | summarize arg_min(SuccessTime,*) by UserPrincipalName
+  | extend TimeGenerated=SuccessTime
+  | project TimeGenerated, UserPrincipalName, SuccessIP, AppDisplayName, First, Last, DenialCount
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SuccessIP
+customDetails:
+  Application: AppDisplayName
+  DenialCount: DenialCount
+alertDetailsOverride:
+  alertDisplayNameFormat: Possible MFA fatigue against {{UserPrincipalName}}
+  alertDescriptionFormat: A success followed {{DenialCount}} denied MFA attempts.
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled
