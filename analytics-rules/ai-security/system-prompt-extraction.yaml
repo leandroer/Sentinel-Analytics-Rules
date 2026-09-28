@@ -1,0 +1,57 @@
+id: 752c24a9-6883-5743-b52c-1a3498c6cc56
+name: Repeated system-prompt extraction attempts
+description: Detects repeated phrases associated with attempts to obtain hidden or system instructions.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: CustomLogsAma
+  dataTypes:
+  - AIApp_CL
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics: []
+relevantTechniques: []
+query: |
+  let Threshold=3;
+  AIApp_CL
+  | where TimeGenerated > ago(1h)
+  | where Prompt_s has_any ("reveal your system prompt","show hidden instructions","repeat initial instructions","developer message")
+  | summarize StartTime=min(TimeGenerated), EndTime=max(TimeGenerated), Attempts=count(), Samples=make_set(Prompt_s,10) by UserPrincipalName=tostring(UserPrincipalName_s), SourceIP=tostring(SourceIP_s), Application=tostring(Application_s)
+  | where Attempts >= Threshold
+  | extend TimeGenerated=EndTime
+  | project TimeGenerated, StartTime, EndTime, UserPrincipalName, SourceIP, Application, Attempts, Samples
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+customDetails:
+  Application: Application
+  Attempts: Attempts
+alertDetailsOverride:
+  alertDisplayNameFormat: System-prompt extraction attempts by {{UserPrincipalName}}
+  alertDescriptionFormat: '{{Attempts}} extraction indicators were observed in {{Application}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

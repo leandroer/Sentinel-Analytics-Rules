@@ -1,0 +1,57 @@
+id: 521cb500-2d10-534e-b081-9a11153e664f
+name: AI response containing sensitive-data indicators
+description: Detects AI responses classified as sensitive or containing configured credential indicators. Adapt the custom schema before deployment.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: CustomLogsAma
+  dataTypes:
+  - AIApp_CL
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Collection
+- Exfiltration
+relevantTechniques:
+- T1552
+query: |
+  AIApp_CL
+  | where TimeGenerated > ago(1h)
+  | extend UserPrincipalName=tostring(UserPrincipalName_s), SourceIP=tostring(SourceIP_s), Response=tostring(Response_s), Classification=tostring(SensitivityClassification_s), Application=tostring(Application_s)
+  | where Classification in~ ("Confidential","Restricted") or Response has_any ("BEGIN PRIVATE KEY","access_token","client_secret")
+  | project TimeGenerated, UserPrincipalName, SourceIP, Application, Classification, ResponseSample=substring(Response,0,500)
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+customDetails:
+  Application: Application
+  Classification: Classification
+alertDetailsOverride:
+  alertDisplayNameFormat: Sensitive AI output in {{Application}}
+  alertDescriptionFormat: A response for {{UserPrincipalName}} contained sensitive-data indicators.
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

@@ -1,0 +1,56 @@
+id: 33c0ea03-2e54-5ef0-95f7-8e5aeec4d4d0
+name: External sharing activity spike
+description: Detects a high volume of SharePoint or OneDrive external-sharing operations by one user.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: Office365
+  dataTypes:
+  - OfficeActivity
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Exfiltration
+relevantTechniques:
+- T1567
+query: |
+  let Threshold=25;
+  OfficeActivity | where TimeGenerated>ago(1h) and Workload in ("SharePoint","OneDrive") and Operation in ("SharingInvitationCreated","AnonymousLinkCreated","SecureLinkCreated","AddedToSecureLink")
+  | summarize End=max(TimeGenerated), ShareCount=count(), Files=make_set(SourceFileName,100), Sites=make_set(Site_Url,25), SourceIPs=make_set(ClientIP,20) by UserPrincipalName=tostring(UserId)
+  | where ShareCount>=Threshold | extend TimeGenerated=End, PrimaryIP=tostring(SourceIPs[0])
+  | project TimeGenerated, UserPrincipalName, PrimaryIP, ShareCount, Files, Sites, SourceIPs
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: PrimaryIP
+customDetails:
+  ShareCount: ShareCount
+  Sites: Sites
+alertDetailsOverride:
+  alertDisplayNameFormat: External-sharing spike by {{UserPrincipalName}}
+  alertDescriptionFormat: '{{ShareCount}} sharing operations were observed.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

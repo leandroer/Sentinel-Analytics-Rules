@@ -1,0 +1,55 @@
+id: c33315d5-f97a-5cd0-9420-54f6810009d0
+name: AI agent high-volume data transfer
+description: Detects high-volume tool results or outbound transfers associated with an AI agent.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: CustomLogsAma
+  dataTypes:
+  - AIToolExecution_CL
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Exfiltration
+relevantTechniques:
+- T1041
+query: |
+  let ByteThreshold=50000000;
+  AIToolExecution_CL
+  | where TimeGenerated > ago(1h)
+  | extend UserPrincipalName=tostring(UserPrincipalName_s), AgentId=tostring(AgentId_s), ToolName=tostring(ToolName_s), Bytes=tolong(OutputBytes_d), Destination=tostring(Destination_s)
+  | summarize EndTime=max(TimeGenerated), TotalBytes=sum(Bytes), Executions=count(), Tools=make_set(ToolName,20) by UserPrincipalName, AgentId, Destination
+  | where TotalBytes >= ByteThreshold
+  | extend TimeGenerated=EndTime
+  | project TimeGenerated, UserPrincipalName, AgentId, Destination, TotalBytes, Executions, Tools
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+customDetails:
+  AgentId: AgentId
+  Destination: Destination
+  TotalBytes: TotalBytes
+alertDetailsOverride:
+  alertDisplayNameFormat: High-volume transfer by agent {{AgentId}}
+  alertDescriptionFormat: Agent activity transferred {{TotalBytes}} bytes to {{Destination}}.
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

@@ -1,0 +1,63 @@
+id: a2ff9903-3121-5f64-8d46-735ab0d7378e
+name: High-priority anomaly for newly observed UEBA identity
+description: Detects a high-priority anomaly for an identity absent from the preceding BehaviorAnalytics history. This does not prove account
+  dormancy.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: BehaviorAnalytics
+  dataTypes:
+  - BehaviorAnalytics
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- InitialAccess
+relevantTechniques:
+- T1078
+query: |
+  let Recent=1h; let Baseline=30d;
+  let Known=BehaviorAnalytics | where TimeGenerated between (ago(Baseline)..ago(Recent)) | summarize by UserPrincipalName;
+  BehaviorAnalytics | where TimeGenerated>ago(Recent) and InvestigationPriority>=7 and isnotempty(UserPrincipalName)
+  | join kind=leftanti Known on UserPrincipalName
+  | extend SourceIP=SourceIPAddress, Reason=tostring(ActivityInsights)
+  | project TimeGenerated, UserPrincipalName, SourceIP, SourceDevice, InvestigationPriority, ActivityType, Reason
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+- entityType: Host
+  fieldMappings:
+  - identifier: HostName
+    columnName: SourceDevice
+customDetails:
+  Priority: InvestigationPriority
+  ActivityType: ActivityType
+  Reason: Reason
+alertDetailsOverride:
+  alertDisplayNameFormat: 'Newly observed identity anomaly: {{UserPrincipalName}}'
+  alertDescriptionFormat: '{{ActivityType}} received priority {{InvestigationPriority}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

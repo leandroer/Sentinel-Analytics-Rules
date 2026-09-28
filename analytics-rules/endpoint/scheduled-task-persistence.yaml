@@ -1,0 +1,58 @@
+id: d000966a-3575-57d6-9df6-a72332d3c52c
+name: Suspicious scheduled task creation
+description: Detects task creation commands containing encoded, script, or user-writable-path indicators.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceProcessEvents
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Persistence
+relevantTechniques:
+- T1053.005
+query: |
+  DeviceProcessEvents | where Timestamp>ago(1h) and FileName in~ ("schtasks.exe","at.exe") and ProcessCommandLine has_any ("/create","powershell","cmd.exe","AppData","Temp\")
+  | extend TimeGenerated=Timestamp, AccountUPN=InitiatingProcessAccountUpn
+  | project TimeGenerated, DeviceName, AccountUPN, FileName, ProcessCommandLine, InitiatingProcessFileName, SHA1
+entityMappings:
+- entityType: Host
+  fieldMappings:
+  - identifier: HostName
+    columnName: DeviceName
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: AccountUPN
+- entityType: FileHash
+  fieldMappings:
+  - identifier: SHA1
+    columnName: SHA1
+customDetails:
+  Process: FileName
+  CommandLine: ProcessCommandLine
+alertDetailsOverride:
+  alertDisplayNameFormat: Suspicious task creation on {{DeviceName}}
+  alertDescriptionFormat: '{{FileName}} created a task with suspicious content.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Host
+    - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

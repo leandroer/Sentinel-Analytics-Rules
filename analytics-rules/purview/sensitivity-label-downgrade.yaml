@@ -1,0 +1,57 @@
+id: 61b6b7f2-5648-5042-86be-c03edcee49cb
+name: Sensitivity label removed or downgraded
+description: Detects audit events indicating that a label was removed or changed to a lower classification. Adapt fields to the tenant schema.
+severity: Medium
+status: Available
+requiredDataConnectors:
+- connectorId: Office365
+  dataTypes:
+  - OfficeActivity
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- DefenseEvasion
+- Exfiltration
+relevantTechniques:
+- T1562.001
+query: |
+  OfficeActivity | where TimeGenerated>ago(1h) and Operation has_any ("SensitivityLabel","LabelRemoved","LabelChanged")
+  | extend UserPrincipalName=tostring(UserId), SourceIP=tostring(ClientIP), FileName=tostring(SourceFileName), OldLabel=tostring(column_ifexists("OldSensitivityLabel","")), NewLabel=tostring(column_ifexists("SensitivityLabel",""))
+  | where isnotempty(OldLabel) and (isempty(NewLabel) or NewLabel in~ ("Public","General","None"))
+  | project TimeGenerated, UserPrincipalName, SourceIP, Operation, FileName, OldLabel, NewLabel
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+customDetails:
+  FileName: FileName
+  OldLabel: OldLabel
+  NewLabel: NewLabel
+alertDetailsOverride:
+  alertDisplayNameFormat: Sensitivity label changed by {{UserPrincipalName}}
+  alertDescriptionFormat: '{{FileName}} changed from {{OldLabel}} to {{NewLabel}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

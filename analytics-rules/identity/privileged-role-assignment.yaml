@@ -1,0 +1,58 @@
+id: d2cbd93c-2d5f-50e7-b2bf-39832cf0e022
+name: Privileged Entra role assignment
+description: Detects successful role-management operations involving configured privileged roles.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - AuditLogs
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Persistence
+- PrivilegeEscalation
+relevantTechniques:
+- T1098.003
+query: |
+  AuditLogs
+  | where TimeGenerated>ago(1h) and Category =~ "RoleManagement" and Result =~ "success"
+  | extend InitiatorUPN=tostring(InitiatedBy.user.userPrincipalName), InitiatorIP=tostring(InitiatedBy.user.ipAddress), TargetUPN=tostring(TargetResources[0].userPrincipalName), RoleDetails=tostring(TargetResources[0].modifiedProperties)
+  | where RoleDetails has_any ("Global Administrator","Privileged Role Administrator","Security Administrator")
+  | project TimeGenerated, InitiatorUPN, InitiatorIP, TargetUPN, RoleDetails, OperationName, CorrelationId
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: TargetUPN
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: InitiatorIP
+customDetails:
+  Initiator: InitiatorUPN
+  RoleDetails: RoleDetails
+  CorrelationId: CorrelationId
+alertDetailsOverride:
+  alertDisplayNameFormat: Privileged role assigned to {{TargetUPN}}
+  alertDescriptionFormat: '{{InitiatorUPN}} completed {{OperationName}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

@@ -1,0 +1,60 @@
+id: 9b07daf3-0f95-5e22-9fb8-afd0f1af2e7c
+name: Office application spawns command shell
+description: Detects Office applications creating command interpreters or script engines.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceProcessEvents
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Execution
+relevantTechniques:
+- T1204.002
+- T1059
+query: |
+  let Office=dynamic(["winword.exe","excel.exe","powerpnt.exe","outlook.exe"]); let Shells=dynamic(["cmd.exe","powershell.exe","pwsh.exe","wscript.exe","cscript.exe","mshta.exe"]);
+  DeviceProcessEvents | where Timestamp>ago(1h) and InitiatingProcessFileName in~ (Office) and FileName in~ (Shells)
+  | extend TimeGenerated=Timestamp, AccountUPN=InitiatingProcessAccountUpn
+  | project TimeGenerated, DeviceName, AccountUPN, FileName, ProcessCommandLine, InitiatingProcessFileName, SHA1
+entityMappings:
+- entityType: Host
+  fieldMappings:
+  - identifier: HostName
+    columnName: DeviceName
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: AccountUPN
+- entityType: FileHash
+  fieldMappings:
+  - identifier: SHA1
+    columnName: SHA1
+customDetails:
+  ChildCommandLine: ProcessCommandLine
+  ParentProcess: InitiatingProcessFileName
+alertDetailsOverride:
+  alertDisplayNameFormat: Office spawned {{FileName}} on {{DeviceName}}
+  alertDescriptionFormat: '{{InitiatingProcessFileName}} launched a command interpreter.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Host
+    - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

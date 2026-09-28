@@ -1,0 +1,57 @@
+id: d1750fa5-12e6-55ed-bf1b-485e1b2fe40a
+name: AI agent privilege escalation indicator
+description: Detects agent tool calls requesting or receiving elevated permissions without an approved workflow.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: CustomLogsAma
+  dataTypes:
+  - AIToolExecution_CL
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- PrivilegeEscalation
+relevantTechniques:
+- T1098
+query: |
+  AIToolExecution_CL
+  | where TimeGenerated > ago(1h)
+  | extend UserPrincipalName=tostring(UserPrincipalName_s), SourceIP=tostring(SourceIP_s), AgentId=tostring(AgentId_s), ToolName=tostring(ToolName_s), Approval=tostring(ApprovalStatus_s), Privilege=tostring(RequestedPrivilege_s)
+  | where Privilege in~ ("Admin","Owner","GlobalAdmin") and Approval !~ "Approved"
+  | project TimeGenerated, UserPrincipalName, SourceIP, AgentId, ToolName, Approval, Privilege
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+customDetails:
+  AgentId: AgentId
+  ToolName: ToolName
+  Privilege: Privilege
+alertDetailsOverride:
+  alertDisplayNameFormat: Agent {{AgentId}} requested elevated access
+  alertDescriptionFormat: '{{UserPrincipalName}} requested {{Privilege}} through {{ToolName}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

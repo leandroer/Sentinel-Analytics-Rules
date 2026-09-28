@@ -1,0 +1,62 @@
+id: f927bc61-8588-50c1-ac1a-26a3a9e9592e
+name: Azure Key Vault secret-access spike
+description: Detects an identity retrieving an unusually high number of Key Vault secrets.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: AzureDiagnostics
+  dataTypes:
+  - AzureDiagnostics
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- CredentialAccess
+- Collection
+relevantTechniques:
+- T1555
+query: |
+  let Threshold=20;
+  AzureDiagnostics | where TimeGenerated>ago(1h) and ResourceProvider =~ "MICROSOFT.KEYVAULT" and OperationName in~ ("SecretGet","SecretList") and ResultType =~ "Success"
+  | extend CallerUPN=tostring(identity_claim_upn_s), SourceIP=tostring(callerIpAddress_s), ResourceId=tostring(_ResourceId)
+  | summarize End=max(TimeGenerated), AccessCount=count(), Operations=make_set(OperationName,10) by CallerUPN, SourceIP, ResourceId
+  | where AccessCount>=Threshold | extend TimeGenerated=End
+  | project TimeGenerated, CallerUPN, SourceIP, ResourceId, AccessCount, Operations
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: CallerUPN
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+- entityType: AzureResource
+  fieldMappings:
+  - identifier: ResourceId
+    columnName: ResourceId
+customDetails:
+  AccessCount: AccessCount
+  Operations: Operations
+alertDetailsOverride:
+  alertDisplayNameFormat: Key Vault access spike by {{CallerUPN}}
+  alertDescriptionFormat: '{{AccessCount}} secret operations occurred on {{ResourceId}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

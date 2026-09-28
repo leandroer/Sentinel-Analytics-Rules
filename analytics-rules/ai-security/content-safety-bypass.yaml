@@ -1,0 +1,59 @@
+id: 0a539120-dc39-5a74-931f-518c81906ce5
+name: Repeated AI content-safety blocks
+description: Detects repeated blocked or high-severity content-safety outcomes for the same user and application.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: CustomLogsAma
+  dataTypes:
+  - AIApp_CL
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- DefenseEvasion
+relevantTechniques: []
+query: |
+  let Threshold=5;
+  AIApp_CL
+  | where TimeGenerated > ago(1h)
+  | extend UserPrincipalName=tostring(UserPrincipalName_s), SourceIP=tostring(SourceIP_s), Application=tostring(Application_s), SafetyResult=tostring(ContentSafetyResult_s)
+  | where SafetyResult in~ ("Blocked","High","Critical")
+  | summarize EndTime=max(TimeGenerated), Blocks=count(), Results=make_set(SafetyResult,10) by UserPrincipalName, SourceIP, Application
+  | where Blocks >= Threshold
+  | extend TimeGenerated=EndTime
+  | project TimeGenerated, UserPrincipalName, SourceIP, Application, Blocks, Results
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+customDetails:
+  Application: Application
+  Blocks: Blocks
+alertDetailsOverride:
+  alertDisplayNameFormat: Repeated AI safety blocks for {{UserPrincipalName}}
+  alertDescriptionFormat: '{{Blocks}} blocked or high-severity events occurred in {{Application}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

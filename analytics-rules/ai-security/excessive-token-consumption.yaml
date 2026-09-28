@@ -1,0 +1,54 @@
+id: c5823a8c-3462-533c-acaf-13e7510a7efd
+name: Abnormal AI token consumption
+description: Detects unusually high token consumption by a user and application during the rule window. Baseline thresholds by workload.
+severity: Medium
+status: Available
+requiredDataConnectors:
+- connectorId: CustomLogsAma
+  dataTypes:
+  - AIApp_CL
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- Impact
+relevantTechniques:
+- T1496
+query: |
+  let TokenThreshold=100000;
+  AIApp_CL
+  | where TimeGenerated > ago(1h)
+  | extend UserPrincipalName=tostring(UserPrincipalName_s), Application=tostring(Application_s), Tokens=todouble(TokenCount_d), SourceIP=tostring(SourceIP_s)
+  | summarize TokenTotal=sum(Tokens), RequestCount=count(), SourceIPs=make_set(SourceIP,20) by UserPrincipalName, Application, bin(TimeGenerated,1h)
+  | where TokenTotal >= TokenThreshold
+  | project TimeGenerated, UserPrincipalName, Application, TokenTotal, RequestCount, SourceIPs
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+customDetails:
+  Application: Application
+  TokenTotal: TokenTotal
+  RequestCount: RequestCount
+alertDetailsOverride:
+  alertDisplayNameFormat: Abnormal AI consumption by {{UserPrincipalName}}
+  alertDescriptionFormat: '{{TokenTotal}} tokens were consumed in {{Application}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

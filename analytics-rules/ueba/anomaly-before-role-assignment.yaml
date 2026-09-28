@@ -1,0 +1,60 @@
+id: e60cd9b5-fdd6-5c36-acd2-9256099e16b6
+name: UEBA anomaly before role assignment
+description: Correlates high-priority behavior with a subsequent successful Entra role-management action.
+severity: High
+status: Available
+requiredDataConnectors:
+- connectorId: BehaviorAnalytics
+  dataTypes:
+  - BehaviorAnalytics
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - AuditLogs
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+- PrivilegeEscalation
+relevantTechniques:
+- T1098
+query: |
+  let Anomaly=BehaviorAnalytics | where TimeGenerated>ago(2h) and InvestigationPriority>=7 | project AnomalyTime=TimeGenerated, UserPrincipalName, SourceIP=SourceIPAddress, InvestigationPriority, ActivityType;
+  let Roles=AuditLogs | where TimeGenerated>ago(2h) and Category =~ "RoleManagement" and Result =~ "success" | extend InitiatorUPN=tostring(InitiatedBy.user.userPrincipalName) | project RoleTime=TimeGenerated, InitiatorUPN, OperationName, TargetResources;
+  Anomaly | join kind=inner Roles on $left.UserPrincipalName==$right.InitiatorUPN | where RoleTime between (AnomalyTime..AnomalyTime+1h)
+  | extend TimeGenerated=RoleTime
+  | project TimeGenerated, AnomalyTime, UserPrincipalName, SourceIP, InvestigationPriority, ActivityType, OperationName, TargetResources
+entityMappings:
+- entityType: Account
+  fieldMappings:
+  - identifier: FullName
+    columnName: UserPrincipalName
+- entityType: IP
+  fieldMappings:
+  - identifier: Address
+    columnName: SourceIP
+customDetails:
+  Priority: InvestigationPriority
+  ActivityType: ActivityType
+  Operation: OperationName
+alertDetailsOverride:
+  alertDisplayNameFormat: 'Anomaly before role change: {{UserPrincipalName}}'
+  alertDescriptionFormat: '{{OperationName}} followed {{ActivityType}}.'
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+    - Account
+    - IP
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled
